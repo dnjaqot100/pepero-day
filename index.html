@@ -53,11 +53,6 @@ header p{margin:8px 0 0;font-size:clamp(15px,3.6vw,20px);opacity:.92}
 }
 .char .pic{width:100%; flex:1; min-height:0}
 .char img{width:100%;height:100%;object-fit:contain;display:block}
-.char .nm{
-  margin-top:4px; background:var(--white); color:var(--red); padding:3px 14px;
-  border-radius:16px; font-size:clamp(13px,3.4vw,18px); line-height:1.2;
-  white-space:pre; text-align:center; flex:none;
-}
 .fx{position:absolute; inset:0; width:100%; height:100%; z-index:3; pointer-events:none}
 .msg{
   position:absolute; left:0; right:0; top:34px; text-align:center; z-index:4;
@@ -104,6 +99,8 @@ header p{margin:8px 0 0;font-size:clamp(15px,3.6vw,20px);opacity:.92}
 .sw{width:34px; height:34px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 2px #e9c3ca; cursor:pointer; padding:0}
 .sw.on{box-shadow:0 0 0 3px var(--red)}
 input[type=color]{width:46px; height:36px; padding:0; border:0; background:none; cursor:pointer}
+.vmsg{background:var(--white); color:var(--ink); border-radius:16px; padding:10px 14px; margin:-6px 0 16px; text-align:center; font-size:15px; line-height:1.4}
+.vmsg[hidden]{display:none}
 .result{background:var(--white); border-radius:24px; padding:16px; margin-bottom:18px; text-align:center}
 .result video{width:100%; max-height:60vh; border-radius:16px; background:#000}
 .result .acts{display:flex; gap:10px; justify-content:center; margin-top:12px}
@@ -159,8 +156,8 @@ input[type=range]{width:100%; accent-color:var(--red)}
     <div class="thlayer" id="thB"></div>
     <canvas class="fx" id="fx"></canvas>
     <div class="stick" id="stick"><div class="choc"></div><div class="cookie"></div></div>
-    <div class="char" id="charA"><div class="pic"><img id="imgA" alt=""></div><div class="nm" id="nmA"></div></div>
-    <div class="char" id="charB"><div class="pic"><img id="imgB" alt=""></div><div class="nm" id="nmB"></div></div>
+    <div class="char" id="charA"><div class="pic"><img id="imgA" alt=""></div></div>
+    <div class="char" id="charB"><div class="pic"><img id="imgB" alt=""></div></div>
   </div>
 
   <div class="bar">
@@ -172,6 +169,7 @@ input[type=range]{width:100%; accent-color:var(--red)}
     <button id="shot" class="sub">📷 사진 저장</button>
     <button id="vid" class="sub">🎬 영상 저장</button>
   </div>
+  <div class="vmsg" id="vst" hidden></div>
   <div class="result" id="result" hidden>
     <video id="rv" controls playsinline></video>
     <div class="acts"><button id="rsave">저장하기</button><button id="rclose" class="ghost">닫기</button></div>
@@ -323,7 +321,7 @@ function metrics(){
   for (const k of ['A','B']){ el[k].style.width = cw + 'px'; el[k].style.height = ch + 'px'; el[k].style.top = (H - FLOOR - ch + 14) + 'px'; }
   const sh = Math.max(20, cw * 0.15);
   stick.style.height = sh + 'px'; stick.style.left = xL + 'px'; stick.style.width = len + 'px';
-  stick.style.top = (H - FLOOR + 14 - ch * .55 - sh / 2) + 'px';
+  stick.style.top = (H - FLOOR + 14 - ch * .5 - sh / 2) + 'px';
   dpr = window.devicePixelRatio || 1;
   fx.width = W * dpr; fx.height = H * dpr;
   bgc.width = W * dpr; bgc.height = H * dpr; paintBg();
@@ -332,8 +330,6 @@ function updateLabels(){
   const a = +$('share').value; m = a / 100;
   $('shareVal').textContent = `${$('inA').value || 'A'} ${a}% · ${$('inB').value || 'B'} ${100 - a}%`;
   $('spdVal').textContent = (+$('spd').value).toFixed(1) + '배속';
-  $('nmA').textContent = $('inA').value || 'A';
-  $('nmB').textContent = $('inB').value || 'B';
   stick.classList.toggle('rev', chocSide === 'B');
 }
 const edges = () => [xL + len * m * S.p, xR - len * (1 - m) * S.p];
@@ -523,10 +519,6 @@ function render(){
   // 이미지를 서로 마주 보는 가장자리에 붙여서, 끝에서 이미지끼리 딱 맞닿게 함
   $('imgA').style.objectPosition = flip.A ? 'left center' : 'right center';
   $('imgB').style.objectPosition = flip.B ? 'right center' : 'left center';
-  for (const [kk, pc] of [['A', p * m], ['B', p * (1 - m)]]){
-    const t = ($('in' + kk).value || kk) + (p > 0 ? `\n${Math.round(pc * 100)}%` : ''), n = $('nm' + kk);
-    if (n.textContent !== t) n.textContent = t;
-  }
   updateThoughts('A'); updateThoughts('B');
   if (k >= 1 && !S.popped){ S.popped = true; msg.textContent = `${$('inA').value || 'A'} 💋 ${$('inB').value || 'B'}  해피 빼빼로데이!`; hearts(eA); kissSound(); }
   msg.classList.toggle('show', k >= 1);
@@ -668,18 +660,12 @@ function drawFrame(c, sc = dpr){
 }
 function drawChar(c, k){
   const box = el[k], left = parseFloat(box.style.left), top = parseFloat(box.style.top);
-  const nm = $('nm' + k), nmH = nm.offsetHeight, picH = ch - nmH - 4, img = $('img' + k);
+  const picH = ch, img = $('img' + k);
   c.save(); c.translate(left + cw / 2, top + ch); c.translate(-cw / 2, -ch + S.bob);
   if (img.naturalWidth){
     const sc = Math.min(cw / img.naturalWidth, picH / img.naturalHeight), dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
     c.save(); c.translate(cw / 2 + (k === 'A' ? 1 : -1) * (cw / 2 - dw / 2), picH / 2 - S.hop); if (flip[k]) c.scale(-1, 1); c.drawImage(img, -dw / 2, -dh / 2, dw, dh); c.restore();
   }
-  const lines = nm.textContent.split('\n');
-  c.font = `${parseFloat(getComputedStyle(nm).fontSize)}px Jua, sans-serif`;
-  const tw = Math.max(...lines.map(l => c.measureText(l).width)) + 28;
-  c.fillStyle = '#fff'; rr(c, (cw - tw) / 2, picH + 4, tw, nmH, Math.min(nmH / 2, 16)); c.fill();
-  c.fillStyle = '#c8102e'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  lines.forEach((l, i) => c.fillText(l, cw / 2, picH + 4 + nmH * (i + .5) / lines.length));
   c.restore();
 }
 function recCanvas(){
@@ -697,29 +683,60 @@ $('shot').onclick = () => {
 };
 
 let rec = null, lastVideo = null;
-function pickMime(){
-  const list = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-  return list.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+const MIMES = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+const IN_APP = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps/i.test(navigator.userAgent);
+function vmsg(t){ $('vst').textContent = t; $('vst').hidden = !t; }
+function vidBtnReset(){ $('vid').disabled = false; $('vid').textContent = '🎬 영상 저장'; }
+function failRec(t){
+  if (rec){ rec.aborted = true; try { if (rec.mr.state !== 'inactive') rec.mr.stop(); } catch (e){} rec = null; }
+  vidBtnReset(); vmsg(t);
+}
+function startRecording(withAudio){
+  reset(); initAudio();
+  try {
+    const { cv, c } = recCanvas(), stream = cv.captureStream(30);
+    const useAudio = !!(withAudio && soundOn && recDest && recDest.stream.getAudioTracks().length);
+    if (useAudio) recDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    let mr = null, mime = '';
+    const sup = window.MediaRecorder.isTypeSupported ? MIMES.filter(t => MediaRecorder.isTypeSupported(t)) : [];
+    for (const t of sup.concat([''])){
+      try { mr = new MediaRecorder(stream, t ? { mimeType:t, videoBitsPerSecond:4e6 } : undefined); mime = t; break; } catch (e){}
+    }
+    if (!mr) throw new Error('recorder');
+    const chunks = [];
+    mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    mr.onerror = () => failRec('녹화 중 오류가 났어요. 다시 시도해 주세요.');
+    mr.onstop = () => {
+      const was = rec; rec = null; vidBtnReset();
+      if (!was || was.aborted) return;
+      const type = (mr.mimeType || mime || 'video/webm').split(';')[0], blob = new Blob(chunks, { type });
+      if (blob.size < 2000){
+        if (was.useAudio){ vmsg('소리 포함 녹화가 안 돼서 소리 없이 다시 녹화해요…'); setTimeout(() => startRecording(false), 300); }
+        else vmsg('영상이 만들어지지 않았어요. 이 브라우저에서는 영상 저장이 어려울 수 있어요. 사진 저장을 쓰거나 크롬·사파리로 열어 주세요.');
+        return;
+      }
+      vmsg(was.withAudio && !was.useAudio && soundOn ? '이 브라우저에서는 소리 없이 저장됐어요.' : '');
+      lastVideo = { blob, ext: type.includes('mp4') ? 'mp4' : 'webm' };
+      $('rv').src = URL.createObjectURL(blob); $('result').hidden = false; $('result').scrollIntoView({ behavior:'smooth', block:'center' });
+    };
+    rec = { mr, ctx:c, sc:cv.width / W, holdUntil:0, aborted:false, useAudio, withAudio };
+    $('vid').disabled = true; $('vid').textContent = '⏺ 녹화 중…'; $('result').hidden = true;
+    mr.start(500); start();
+  } catch (e){ failRec('영상 저장을 시작하지 못했어요. 사진 저장을 쓰거나 크롬·사파리로 열어 주세요.'); }
 }
 $('vid').onclick = () => {
   if (rec) return;
-  if (!window.MediaRecorder){ alert('이 브라우저는 영상 저장을 지원하지 않아요. 사진 저장을 이용해 주세요.'); return; }
-  reset(); initAudio();
-  const { cv, c } = recCanvas(), stream = cv.captureStream(30);
-  if (soundOn && recDest) recDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-  const mime = pickMime(), mr = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4e6 } : undefined), chunks = [];
-  mr.ondataavailable = e => e.data.size && chunks.push(e.data);
-  mr.onstop = () => {
-    const was = rec; rec = null; $('vid').disabled = false; $('vid').textContent = '🎬 영상 저장';
-    if (!was || was.aborted) return;
-    const type = (mr.mimeType || mime || 'video/webm').split(';')[0];
-    lastVideo = { blob: new Blob(chunks, { type }), ext: type.includes('mp4') ? 'mp4' : 'webm' };
-    $('rv').src = URL.createObjectURL(lastVideo.blob); $('result').hidden = false; $('result').scrollIntoView({ behavior:'smooth', block:'center' });
-  };
-  rec = { mr, ctx: c, sc: cv.width / W, holdUntil: 0, aborted: false };
-  $('vid').disabled = true; $('vid').textContent = '⏺ 녹화 중…'; $('result').hidden = true;
-  mr.start(); start();
+  vmsg('');
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){
+    vmsg(IN_APP ? '카카오톡·네이버 같은 앱 안의 브라우저에서는 영상 저장이 안 돼요. 크롬이나 사파리로 열어 주세요.' : '이 브라우저는 영상 저장을 지원하지 않아요. 사진 저장을 이용해 주세요.');
+    return;
+  }
+  startRecording(true);
 };
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && rec){ abortRec(); vmsg('녹화 중에 화면을 벗어나서 취소됐어요. 화면을 켜 둔 채로 다시 눌러 주세요.'); }
+});
+if (IN_APP) vmsg('앱 안의 브라우저에서는 영상·사진 저장이 안 될 수 있어요. 크롬이나 사파리로 열어 보세요.');
 function finishRec(){ if (rec && rec.mr.state !== 'inactive') rec.mr.stop(); }
 function abortRec(){ if (!rec) return; rec.aborted = true; if (rec.mr.state !== 'inactive') rec.mr.stop(); }
 $('rsave').onclick = async () => {
